@@ -1,0 +1,110 @@
+import re
+import lxml
+from bs4 import BeautifulSoup
+import requests
+import csv
+
+url='http://lesregion.ru/index.php?do=lts-search&region=1&findstr=&page=1'
+
+headers= {
+    'Accept' : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36'
+}
+
+all_url=[]
+
+for i in range (1,35):
+    req=requests.get(url=f'http://lesregion.ru/index.php?do=lts-search&region=1&findstr=&page={i}', headers=headers)
+
+    src = req.text
+
+    with open ('index.html', 'w', encoding = 'utf-8') as file:
+        file.write(src)
+        
+    with open ('index.html', encoding='utf-8') as file:
+        src=file.read()
+        
+    soup = BeautifulSoup(src, 'lxml')
+
+    all_company_href=soup.find_all('div',class_='lts-short')
+
+    for i in all_company_href:
+        href='http://lesregion.ru'+i.find('a').get('href')
+        all_url.append(href)
+
+with open ( 'Forest.csv','w',encoding="utf-8-sig") as file:
+        writer=csv.writer(file, delimiter=';')
+        writer.writerow(
+            (
+                'Имя',
+                'Адрес',
+                'ИНН',
+                'Директор',
+                'Телефон руководителя',
+                'E-mail',
+                'Web',
+                'Комментарий'
+            )
+        )
+
+
+for company_url in all_url:
+    req=requests.get(url=company_url,headers=headers)
+    src=req.text
+    soup=BeautifulSoup(src,'lxml')
+    company_data=soup.find('div',class_='lts-content')
+    try:
+        company_name=company_data.find(itemprop='name').text
+    except Exception:
+        company_name= 'no company name'
+    try:
+        company_adress=company_data.find('td', itemprop='address').text
+    except Exception:
+        company_adress= 'no company adress'
+    try:
+        company_inn=company_data.find('td',string='ИНН:')
+        company_inn_number=company_inn.find_next().text
+    except Exception:
+        company_inn_number= 'no company inn'
+    try:
+        company_director=company_data.find('td',string='Директор:')
+        company_director_name=company_director.find_next().text
+    except Exception:
+        company_director_name='no company director name'
+    try:
+        company_phone=company_data.find('td',string='Телефон руководителя:')
+        company_phone_number=company_phone.find_next().text
+
+    except Exception:
+        company_phone_number='no company phone number'
+    try:
+        company_email=company_data.find('td', itemprop='email').text
+
+    except Exception:
+        company_adress= 'no company email'
+    try:
+        company_web=company_data.find('td', itemprop='url').text
+
+    except Exception:
+        company_web='no company web'
+    try:
+        company_comments=company_data.find('td',string='Комментарий:')
+        company_comments_text=company_comments.find_next().contents
+        
+    except Exception:
+        company_comments_text='no company comments'    
+
+    with open ('Forest.csv','a',encoding="utf-8-sig") as file: #дозаписывать файл следовательно флаг не 'w' a 'a', от слова append
+        writer=csv.writer(file, delimiter=';')
+        writer.writerow(
+            (
+                company_name,
+                company_adress,
+                company_inn_number,
+                company_director_name,
+                company_phone_number,
+                company_email,
+                company_web,
+                company_comments_text
+            )
+        )  
